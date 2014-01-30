@@ -267,7 +267,7 @@ class omShares {
 			"
 					CREATE TABLE `$this->table` (
 						`post_id` bigint(20) unsigned NOT NULL DEFAULT '0',
-						`shares` longtext COLLATE utf8_czech_ci NOT NULL DEFAULT '',
+						`shares` longtext COLLATE utf8_czech_ci NOT NULL,
 						`total` int(10) unsigned NOT NULL DEFAULT '0',
 						`hits` bigint(20) unsigned DEFAULT NULL,
 						`stamp` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
