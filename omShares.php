@@ -38,14 +38,13 @@ class omShares {
 		$this->table = $this->wpdb->prefix . 'om_shares'; // setup table name
 
 		// activate and deactivate plugin hook
-		register_activation_hook(__FILE__, array($this, 'activation'));
-		register_deactivation_hook(__FILE__, array($this, 'deactivation'));
+		register_activation_hook(__FILE__, [$this, 'activation']);
+		register_deactivation_hook(__FILE__, [$this, 'deactivation']);
 
-		add_action('delete_post', array($this, 'deletePost'));
-		add_action('cron_schedules', array($this, 'cronSchedules'));
+		add_action('delete_post', [$this, 'deletePost']);
+		add_action('cron_schedules', [$this, 'cronSchedules']);
 
-		// setup cron
-		add_action(self::CRON_HOOK_NAME, array($this, 'updateSharesCounts'));
+		add_action(self::CRON_HOOK_NAME, [$this, 'updateSharesCounts']); // setup cron
 	}
 
 	/**
@@ -231,13 +230,11 @@ class omShares {
 		// 2. backup result to database
 		$shares = json_encode($shares);
 
-		$sql = sprintf(
-			"INSERT INTO %s
-							(`post_id`,`shares`,`total`) VALUES ('$post_id', '$shares', '$total')
-  					ON DUPLICATE KEY UPDATE
-  						`shares` = '$shares', `total` = '$total', `hits` = null
-  				", $this->table
-		);
+		$sql = "
+			INSERT INTO {$this->table}
+				(`post_id`,`shares`,`total`) VALUES ('$post_id', '$shares', '$total')
+  		ON DUPLICATE KEY UPDATE
+  			`shares` = '$shares', `total` = '$total', `hits` = null";
 
 		return $this->wpdb->query($sql);
 	}
@@ -284,10 +281,10 @@ class omShares {
 	 * @return mixed
 	 */
 	public function cronSchedules($schedules) {
-		$schedules['superoften'] = array(
+		$schedules['superoften'] = [
 			'interval' => MINUTE_IN_SECONDS * 3,
 			'display' => __('Super often')
-		);
+		];
 		return $schedules;
 	}
 
