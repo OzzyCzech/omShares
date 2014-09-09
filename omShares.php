@@ -9,6 +9,7 @@ namespace omShares;
  * Author URI: http://www.omdesign.cz/kontakt
  */
 
+require_once __DIR__ . '/Cache.php';
 require_once __DIR__ . '/shares/IShares.php';
 require_once __DIR__ . '/shares/LinkedIn.php';
 require_once __DIR__ . '/shares/Twitter.php';
@@ -16,7 +17,6 @@ require_once __DIR__ . '/shares/Facebook.php';
 require_once __DIR__ . '/shares/GooglePlus.php';
 
 /**
- *
  * @see http://codex.wordpress.org/Function_Reference/wp_schedule_event
  * @author Roman Ožana <ozana@omdesign.cz>
  */
@@ -28,7 +28,10 @@ class omShares {
 	/** @var string */
 	private $table;
 
-	const CRON_HOOK_NAME = 'om_shares_update_hook'; // cron hook name
+	/** @var array */
+	private $cache = [];
+
+	const CRON_HOOK = 'om_shares_update_hook'; // cron hook name
 
 	/**
 	 * @param \wpdb $wpdb
@@ -44,7 +47,7 @@ class omShares {
 		add_action('delete_post', [$this, 'deletePost']);
 		add_action('cron_schedules', [$this, 'cronSchedules']);
 
-		add_action(self::CRON_HOOK_NAME, [$this, 'updateSharesCounts']); // setup cron
+		add_action(self::CRON_HOOK, [$this, 'updateSharesCounts']); // setup cron
 	}
 
 	/**
@@ -55,14 +58,12 @@ class omShares {
 	 */
 	public function getTotalSharesCount($post_id = null) {
 		$post_id = (int)($post_id == null) ? get_the_ID() : $post_id; // post_id can be null
-		$key = self::key($post_id, 'total');
-		$total = wp_cache_get($key);
 
 		$this->hit($post_id); // +1 hit
 
-		if ($total === false) {
+		if (!$total = Cache::getTotal($post_id)) {
 			$total = (int)$this->wpdb->get_var("SELECT `total` FROM $this->table WHERE `post_id` = '$post_id' LIMIT 1");
-			wp_cache_set($key, $total);
+			Cache::setTotal($post_id, $total);
 		}
 
 		return $total;
@@ -78,16 +79,15 @@ class omShares {
 	 */
 	public function getNetworkSharesCount($network, $post_id = null) {
 		$post_id = (int)($post_id == null) ? get_the_ID() : $post_id; // post_id can be null
-		$key = self::key($post_id, 'shares');
-		$shares = wp_cache_get($key);
 
 		$this->hit($post_id); // +1 hit
 
 		// getting shares count from
-		if ($shares === false) {
+		if (!$shares = Cache::getShares($post_id)) {
 			$shares = json_decode(
 				(string)$this->wpdb->get_var("SELECT `shares` FROM $this->table WHERE `post_id` = '$post_id' LIMIT 1")
 			);
+			Cache::setShares($post_id, $shares);
 		}
 
 		return array_key_exists($network, $shares) ? $shares[$network] : 0;
@@ -103,6 +103,8 @@ class omShares {
 		$sql = "SELECT `post_id` FROM `$this->table` WHERE `hits` IS NOT NULL ORDER BY `hits` DESC, `stamp` ASC LIMIT " . $size;
 		$hits = (array)$this->wpdb->get_col($sql);
 
+		var_dump($hits);
+
 		// get some oldies :)
 		$sql = "SELECT `post_id` FROM `$this->table` ORDER BY `stamp` ASC LIMIT " . $size;
 		$oldies = (array)$this->wpdb->get_col($sql);
@@ -110,7 +112,7 @@ class omShares {
 		foreach (array_merge($hits, $oldies) as $id) {
 			$shares = $this->getNewSharesCount($id);
 			$this->saveShareData($id, $shares, $total = (int)array_sum($shares));
-			wp_cache_set(self::key($id, 'hits'), 0); // reset hits
+			Cache::setHits($id, 0); // reset hits
 		}
 	}
 
@@ -123,12 +125,12 @@ class omShares {
 	public function getNewSharesCount($post_id) {
 		$url = apply_filters('share_url', get_permalink($post_id));
 
-		return array(
+		return [
 			'twitter' => Twitter::getShares($url),
 			'facebook' => Facebook::getShares($url),
 			'linkedin' => LinkedIn::getShares($url),
 			'gplus' => GooglePlus::getShares($url),
-		);
+		];
 	}
 
 
@@ -138,16 +140,15 @@ class omShares {
 	 * @param $post_id
 	 */
 	public function hit($post_id) {
-		$key = self::key($post_id, 'hits');
-		$hits = (int)wp_cache_get($key);
+		$hits = Cache::getHits($post_id);
 		$inc = (is_home() || is_single()) ? 3 : 1; // hompage and single is 3 x more important
 
 		if (!$hits || $hits > 50) {
 			$this->updateHits($post_id, $hits + $inc);
-			wp_cache_set($key, $hits = 1); // try set cache for next time
+			Cache::setHits($post_id, $hits = 1); // try set cache for next time
+		} else {
+			Cache::setHits($post_id, $hits + $inc);
 		}
-
-		wp_cache_set($key, $hits + $inc);
 	}
 
 	/**
@@ -157,14 +158,14 @@ class omShares {
 	 * @return int
 	 */
 	public function getHits($post_id) {
-		$key = self::key($post_id, 'hits');
 		$post_id = (int)$post_id;
 
-		if (!$hits = (int)wp_cache_get($key)) {
-			return (int)$this->wpdb->get_var("SELECT `hits` FROM $this->table WHERE `post_id` = '$post_id' LIMIT 1");
-		} else {
-			return $hits;
+		if (!$hits = Cache::getHits($post_id)) {
+			$hits = (int)$this->wpdb->get_var("SELECT `hits` FROM $this->table WHERE `post_id` = '$post_id' LIMIT 1");
+			Cache::setHits($post_id, $hits);
 		}
+
+		return $hits;
 	}
 
 	/**
@@ -183,10 +184,8 @@ class omShares {
 	 * @param $post_id
 	 */
 	public function deletePost($post_id) {
-		wp_cache_delete(self::key($post_id, 'hits'));
-		wp_cache_delete(self::key($post_id, 'shares'));
-		wp_cache_delete(self::key($post_id, 'total'));
-		$this->wpdb->delete($this->table, array('post_id' => $post_id));
+		Cache::delete($post_id);
+		$this->wpdb->delete($this->table, ['post_id' => $post_id]);
 	}
 
 	// -------------------------------------------------------------------------------------------------------------------
@@ -224,8 +223,8 @@ class omShares {
 		if (!get_post($post_id)) return false;
 
 		// 1. save result to cache first
-		wp_cache_set(self::key($post_id, 'shares'), $shares);
-		wp_cache_set(self::key($post_id, 'total'), $total);
+		Cache::setShares($post_id, $shares);
+		Cache::setTotal($post_id, $total);
 
 		// 2. backup result to database
 		$shares = json_encode($shares);
@@ -245,8 +244,8 @@ class omShares {
 	public function activation() {
 		if ($this->wpdb->get_var("SHOW TABLES LIKE '$this->table';") !== $this->table) $this->createTable(); // if missing
 
-		if (!wp_next_scheduled(self::CRON_HOOK_NAME)) {
-			wp_schedule_event(time(), 'superoften', self::CRON_HOOK_NAME);
+		if (!wp_next_scheduled(self::CRON_HOOK)) {
+			wp_schedule_event(time(), 'superoften', self::CRON_HOOK);
 		}
 	}
 
@@ -255,7 +254,7 @@ class omShares {
 	 * Plugin deactivation
 	 */
 	public function deactivation() {
-		wp_clear_scheduled_hook(self::CRON_HOOK_NAME);
+		wp_clear_scheduled_hook(self::CRON_HOOK);
 		wp_cache_flush(); // delete cache
 	}
 
@@ -292,25 +291,17 @@ class omShares {
 	// -------------------------------------------------------------------------------------------------------------------
 
 	/**
-	 * Create cache key storage
-	 *
-	 * @return string
-	 */
-	private static function key() {
-		return 'omShares-' . implode('-', func_get_args());
-	}
-
-	/**
 	 * Plugin uninstall hook
 	 */
 	public static function uninstall() {
-		wp_clear_scheduled_hook(self::CRON_HOOK_NAME);
+		wp_clear_scheduled_hook(self::CRON_HOOK);
 	}
 
 }
 
-global $wpdb;
-register_uninstall_hook(__FILE__, array('omShares\omShares', 'uninstall'));
-$omShares = new omShares($wpdb);
+register_uninstall_hook(__FILE__, ['omShares\omShares', 'uninstall']);
 
-//$omShares->updateSharesCounts();
+global $wpdb;
+$GLOBALS['omShares'] = $omShares = new omShares($wpdb);
+
+// $omShares->updateSharesCounts(); // FIXME for debug only
