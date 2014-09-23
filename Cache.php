@@ -17,6 +17,10 @@ class Cache {
 		return wp_cache_set($post_id . ':total', (int)$total, self::GROUP);
 	}
 
+	/**
+	 * @param $post_id
+	 * @return int
+	 */
 	public static function getTotal($post_id) {
 		return (int)wp_cache_get($post_id . ':total', self::GROUP);
 	}

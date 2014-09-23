@@ -33,11 +33,9 @@ class omShares {
 
 	const CRON_HOOK = 'om_shares_update_hook'; // cron hook name
 
-	/**
-	 * @param \wpdb $wpdb
-	 */
-	public function __construct(\wpdb $wpdb = null) {
-		$this->wpdb = $wpdb;
+
+	public function __construct() {
+		$this->wpdb = $GLOBALS['wpdb'];
 		$this->table = $this->wpdb->prefix . 'om_shares'; // setup table name
 
 		// activate and deactivate plugin hook
@@ -98,12 +96,10 @@ class omShares {
 	 * - select 10 from start some most hits articles
 	 * - select 10 from end some not hits articles or old one
 	 */
-	public function updateSharesCounts($size = 10) {
+	public function updateSharesCounts($size = 1) {
 		// get some hits posts
 		$sql = "SELECT `post_id` FROM `$this->table` WHERE `hits` IS NOT NULL ORDER BY `hits` DESC, `stamp` ASC LIMIT " . $size;
 		$hits = (array)$this->wpdb->get_col($sql);
-
-		var_dump($hits);
 
 		// get some oldies :)
 		$sql = "SELECT `post_id` FROM `$this->table` ORDER BY `stamp` ASC LIMIT " . $size;
@@ -300,8 +296,13 @@ class omShares {
 }
 
 register_uninstall_hook(__FILE__, ['omShares\omShares', 'uninstall']);
+$GLOBALS['omShares'] = $omShares = new omShares();
 
-global $wpdb;
-$GLOBALS['omShares'] = $omShares = new omShares($wpdb);
-
-// $omShares->updateSharesCounts(); // FIXME for debug only
+/*
+add_action(
+	'wp_footer', function () {
+		global $omShares;
+		$omShares->updateSharesCounts();
+	}
+);
+*/
