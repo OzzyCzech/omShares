@@ -1,7 +1,7 @@
 <?php
 namespace omShares;
 /**
- * @author Roman Ozana <ozana@omdesign.cz>
+ * @author Roman Ozana <roman@ozana.cz>
  * @see http://papermashup.com/display-facebook-likes-shares-php-function/
  */
 class Facebook implements IShares {

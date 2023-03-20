@@ -1,7 +1,7 @@
 <?php
 namespace omShares;
 /**
- * @author Roman Ozana <ozana@omdesign.cz>
+ * @author Roman Ozana <roman@ozana.cz>
  */
 class GooglePlus implements IShares {
 

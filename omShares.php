@@ -2,11 +2,11 @@
 namespace omShares;
 /**
  * Plugin Name: omShares
- * Plugin URI: http://www.omdesign.cz
+ * Plugin URI: https://ozana.cz
  * Description: Getting total page shares count auto-update on background with cron
  * Version: 1.0
  * Author: Roman Ožana
- * Author URI: http://www.omdesign.cz/kontakt
+ * Author URI: https://ozana.cz/kontakt
  */
 
 require_once __DIR__ . '/Cache.php';
@@ -18,7 +18,7 @@ require_once __DIR__ . '/shares/GooglePlus.php';
 
 /**
  * @see http://codex.wordpress.org/Function_Reference/wp_schedule_event
- * @author Roman Ožana <ozana@omdesign.cz>
+ * @author Roman Ožana <roman@ozana.cz>
  */
 class omShares {
 
